@@ -10,6 +10,8 @@
     const NUC_C = 3;
     const NUC_A = 4;
 
+    const NUM_NUCLEOTIDES = 10;
+
     // ES6 notation to use the variable contents as the key and not the name
     const INV_NUCS = {
         [NUC_A]: [NUC_T, NUC_U],
@@ -19,11 +21,13 @@
         [NUC_U]: [NUC_A]
     };
 
+    // nucleotides
+    var nucleotides = new Array();
+    var currentNucleotide = null;
+
     // Score display
     var numMatches = 0;
     var numErrors = 0;
-    var currentNucleotide = null;
-    var currentBase = null;
     var seqNTText = null;
     var seqNTs = 0;
     var rateText = null;
@@ -49,22 +53,55 @@
         return Math.round(numMatches / (numMatches + numErrors) * 100);
     }
 
-    function nextNucleotide() {
-        currentBase = randint(0, 4);
-        currentNucleotide = gameObj.add.sprite(170 + 30, 300 + 30, "tiles", currentBase)
-            .setScale(0.5)
+    function getNucScale(i) {
+        var initScale = 0.5 / NUM_NUCLEOTIDES;
+        return initScale + i * initScale;
+    }
+    function getNucPos(i) {
+        var initX = 300;
+        var initY = 200;
+        var offsx = 15, offsy = 12;
+        return {x: initX - offsx * i, y: initY + offsy * i}
+    }
 
-        // This simply fades in a nucleotide sprite
-        gameObj.add.tween({
-            targets: [currentNucleotide],
-            ease: "Sine.easeInOut",
-            duration: 1000,
-            alpha: {
-                getStart: () => 0.0,
-                getEnd: () => 1.0
-            },
-            onComplete: () => {}
-        });
+    function makeInitialNucleotides() {
+        // start with initial scale 0.5 / NUM_NUCLEOTIDES and multiply scale
+        // from back to front
+        for (var i = 0; i < NUM_NUCLEOTIDES; i++) {
+            var pos = getNucPos(i);
+            var base = randint(0, 4);
+            var nucleotide = {
+                base: base,
+                sprite: gameObj.add.sprite(pos.x, pos.y, "tiles", base)
+                    .setScale(getNucScale(i))
+            };
+            nucleotides.push(nucleotide);
+        }
+        currentNucleotide = nucleotides[nucleotides.length - 1];
+    }
+    function nextNucleotide() {
+        // 1. remove the last element and insert a new one at the beginning
+        // 2. recompute scale and positions
+        nucleotides.pop();
+        currentNucleotide = nucleotides[nucleotides.length - 1];
+
+        var base = randint(0, 4);
+
+        // new nucleotide
+        var pos = getNucPos(i);
+        var nucleotide = {
+            base: base,
+            sprite: gameObj.add.sprite(pos.x, pos.y, "tiles", base)
+                .setScale(getNucScale(0))
+        };
+        nucleotides.unshift(nucleotide);
+        // From back to front to preserve draw order, actually we need to set
+        // Sprite depth as well to make sure of that
+        for (var i = nucleotides.length - 1; i > 0; i--) {
+            var pos = getNucPos(i);
+            nucleotides[i].sprite.setScale(getNucScale(i))
+                .setPosition(pos.x, pos.y).setDepth(i);
+        }
     }
 
     function updateRate() {
@@ -85,7 +122,7 @@
     }
 
     function match(nuc) {
-        var inverse = INV_NUCS[currentBase];
+        var inverse = INV_NUCS[currentNucleotide.base];
         var found = false;
         for (var i = 0; i < inverse.length; i++) {
             if (inverse[i] === nuc) {
@@ -95,7 +132,7 @@
         }
         if (found) {
             // destroy the nucleotide and generate the next one
-            currentNucleotide.destroy();
+            currentNucleotide.sprite.destroy();
             nextNucleotide();
 
             // do score computations here
@@ -190,7 +227,8 @@
         u.on('pointerdown', onUClicked);
 
 
-        nextNucleotide();
+        makeInitialNucleotides();
+
         timer = this.time.addEvent({
             delay: 1000,
             callback: updateRate,
