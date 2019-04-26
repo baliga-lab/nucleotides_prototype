@@ -18,8 +18,24 @@
         [NUC_T]: [NUC_A],
         [NUC_U]: [NUC_A]
     };
+
+    // Score display
+    var numMatches = 0;
+    var numErrors = 0;
     var currentNucleotide = null;
     var currentBase = null;
+    var seqNTText = null;
+    var seqNTs = 0;
+    var rateText = null;
+    var accuracyText = null;
+    var scoreText = null;
+    var score = 0;
+    var timer = null;
+    var secs = 0;
+
+    var bgmusic = null;
+    var bing = null;
+    var buzz = null;
     // **********************************************************************
     // ****** Game logic
     // **********************************************************************
@@ -29,9 +45,13 @@
         return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 
+    function computeAccuracy() {
+        return Math.round(numMatches / (numMatches + numErrors) * 100);
+    }
+
     function nextNucleotide() {
         currentBase = randint(0, 4);
-        currentNucleotide = gameObj.add.sprite(170 + 30, 200 + 30, "tiles", currentBase)
+        currentNucleotide = gameObj.add.sprite(170 + 30, 300 + 30, "tiles", currentBase)
             .setScale(0.5)
 
         // This simply fades in a nucleotide sprite
@@ -47,12 +67,21 @@
         });
     }
 
+    function updateRate() {
+        secs += 1;
+        var rate = Math.round(((numMatches + numErrors) / secs) * 60);
+        rateText.text = rate;
+    }
+
     function preload ()
     {
         // on initialization, we remember our current game object
         gameObj = this;
         this.load.image('isblogo', 'images/isb_color_logo1.png');
         this.load.spritesheet('tiles', 'images/tiles.png', { frameWidth: 120, frameHeight: 120});
+        this.load.audio('bing', 'sounds/bell-short.wav');
+        this.load.audio('buzz', 'sounds/error-buzz.wav');
+        this.load.audio('bgmusic', 'sounds/tears_of_my_heart.mp3');
     }
 
     function match(nuc) {
@@ -68,8 +97,24 @@
             // destroy the nucleotide and generate the next one
             currentNucleotide.destroy();
             nextNucleotide();
+
+            // do score computations here
+            numMatches += 1;
+            seqNTs += 1;
+            seqNTText.text = seqNTs;
+            score += 10;
+            scoreText.text = score;
+            accuracyText.text = computeAccuracy() + '%';
+            bing.once('play', function(sound) {
+            }, this);
+            bing.play();
         } else {
-            console.log("NO MATCH !!!");
+            // do score computations here
+            numErrors += 1;
+            seqNTs = 0;
+            seqNTText.text = seqNTs;
+            accuracyText.text = computeAccuracy() + '%';
+            buzz.play();
         }
     }
 
@@ -91,7 +136,38 @@
 
     function create ()
     {
+        bing = this.sound.add('bing');
+        buzz = this.sound.add('buzz');
+        bgmusic = this.sound.add('bgmusic', {volume: 0.3});
+        bgmusic.play();
         var isblogo = this.add.image(320, 30, "isblogo").setScale(0.3);
+        this.add.text(10, 10, "Nucleotides",
+                      {fontFamily: 'Helvetica, "sans serif"',
+                       fontStyle: 'italic',
+                       fontSize: '16pt', color: '#000'})
+
+        this.add.text(10, 50, "Sequence NTs",
+                      {fontFamily: 'Helvetica, "sans serif"', fontSize: '12pt', color: '#000'});
+        seqNTText = this.add.text(10, 70, "0",
+                                  {fontFamily: 'Helvetica, "sans serif"', fontSize: '12pt',
+                                   color: '#000'});
+        this.add.text(10, 100, "Rate (NTs per minute)",
+                      {fontFamily: 'Helvetica, "sans serif"', fontSize: '12pt', color: '#000'});
+        rateText = this.add.text(10, 120, "0",
+                                 {fontFamily: 'Helvetica, "sans serif"', fontSize: '12pt',
+                                  color: '#000'});
+
+        this.add.text(10, 150, "Accuracy",
+                      {fontFamily: 'Helvetica, "sans serif"', fontSize: '12pt', color: '#000'});
+        accuracyText = this.add.text(10, 170, "0%",
+                                     {fontFamily: 'Helvetica, "sans serif"', fontSize: '12pt',
+                                      color: '#000'});
+
+        this.add.text(10, 200, "Score",
+                      {fontFamily: 'Helvetica, "sans serif"', fontSize: '12pt', color: '#000'});
+        scoreText = this.add.text(10, 220, "0",
+                                  {fontFamily: 'Helvetica, "sans serif"', fontSize: '12pt',
+                                   color: '#000'});
 
         var a = this.add.sprite(30 + 30, 400 + 30, "tiles", 4)
             .setScale(0.5).setInteractive();
@@ -115,12 +191,14 @@
 
 
         nextNucleotide();
+        timer = this.time.addEvent({
+            delay: 1000,
+            callback: updateRate,
+            loop: true
+        });
     }
 
-    function update ()
-    {
-        //console.log("x: " + this.input.x + " y: " + this.input.y);
-    }
+    function update () { }
 
     // **********************************************************************
     // ****** Public API
@@ -133,7 +211,7 @@
         type: Phaser.AUTO,
         width: 420,
         height: 500,
-        backgroundColor: '#ccc',
+        backgroundColor: '#eee',
         scene: {
             preload: preload,
             create: create,
